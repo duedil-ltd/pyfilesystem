@@ -9,17 +9,18 @@ PY3 = sys.version_info >= (3,)
 
 VERSION = "0.5.0"
 
-COMMANDS = ['fscat',
-            'fscp',
-            'fsinfo',
-            'fsls',
-            'fsmv',
-            'fscp',
-            'fsrm',
-            'fsserve',
-            'fstree',
-            'fsmkdir',
-            'fsmount']
+COMMANDS = [
+    'fscat',
+    'fscp',
+    'fsinfo',
+    'fsls',
+    'fsmkdir',
+    'fsmount'
+    'fsmv',
+    'fsrm',
+    'fsserve',
+    'fstree',
+]
 
 
 classifiers = [
@@ -68,7 +69,9 @@ setup(install_requires=['setuptools', 'six'],
                 'fs.contrib.tahoelafs',
                 'fs.commands'],
       package_data={'fs': ['tests/data/*.txt']},
-      scripts=['fs/commands/%s' % command for command in COMMANDS],
+      entry_points={'console_scripts': [
+          '{c} = fs.commands.{c}:run'.format(c=c) for c in COMMANDS
+      ]},
       classifiers=classifiers,
       **extra
       )
