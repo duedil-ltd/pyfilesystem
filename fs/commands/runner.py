@@ -272,6 +272,9 @@ class Command(object):
                             help="import an FS opener e.g --fs foo.bar.MyOpener", metavar="OPENER")
         return optparse
 
+    def check_args(self, parser, options):
+        pass
+
     def list_openers(self):
 
         opener_table = []
@@ -314,6 +317,7 @@ class Command(object):
     def run(self):
         parser = self.get_optparse()
         options, args = parser.parse_args()
+        self.check_args(parser, options)
         self.options = options
 
         if options.listopeners:
