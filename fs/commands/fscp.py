@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+from functools import partial
+from fs.errors import DestinationExistsError
 from fs.utils import copyfile, copyfile_non_atomic
 from fs.path import pathjoin, iswildcard
 from fs.commands.runner import Command
@@ -30,7 +32,10 @@ class FileOpThread(threading.Thread):
                 if path_type == FScp.DIR:                        
                     self.dest_fs.makedir(path, recursive=True, allow_recreate=True)
                 else:                                                                
-                    self.action(fs, path, self.dest_fs, dest_path, overwrite=True)                    
+                    self.action(fs, path, self.dest_fs, dest_path)
+            except DestinationExistsError, e:
+                self.queue.task_done()
+                self.on_done(path_type, fs, path, self.dest_fs, dest_path, e)
             except Exception, e:                
                 self.on_error(e)                                
                 self.queue.task_done()                                  
@@ -50,15 +55,17 @@ Copy SOURCE to DESTINATION"""
     
     def get_action(self):
         if self.options.threads > 1:
-            return copyfile_non_atomic
+            return partial(copyfile_non_atomic, overwrite=self.options.overwrite)
         else:
-            return copyfile
+            return partial(copyfile, overwrite=self.options.overwrite)
     
     def get_verb(self):
         return 'copying...'
 
     def get_optparse(self):
         optparse = super(FScp, self).get_optparse()
+        optparse.add_option('-n', '--no-clobber', dest='overwrite', action="store_false", default=True,
+                            help="do not overwrite an existing file")
         optparse.add_option('-p', '--progress', dest='progress', action="store_true", default=False,
                             help="show progress", metavar="PROGRESS")
         optparse.add_option('-t', '--threads', dest='threads', action="store", default=1,
@@ -199,13 +206,13 @@ Copy SOURCE to DESTINATION"""
     def post_actions(self):
         pass
         
-    def on_done(self, path_type, src_fs, src_path, dst_fs, dst_path):        
+    def on_done(self, path_type, src_fs, src_path, dst_fs, dst_path, error=None):
         self.lock.acquire()        
         try:
             if self.options.verbose:
                 if path_type == self.DIR:
                     print "mkdir %s" % dst_fs.desc(dst_path)
-                else:
+                elif not isinstance(error, DestinationExistsError):
                     print "%s -> %s" % (src_fs.desc(src_path), dst_fs.desc(dst_path))
             elif self.options.progress:
                 self.done_files += 1        
