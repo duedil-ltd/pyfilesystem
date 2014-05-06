@@ -24,18 +24,24 @@ import six
 
 from fs.mountfs import MountFS
 from fs.path import pathjoin
-from fs.errors import DestinationExistsError, RemoveRootError
+from fs.errors import DestinationNotOlderError, DestinationExistsError, \
+                      RemoveRootError, ResourceNotFoundError, \
+                      ResourceInvalidError, ParentDirectoryMissingError
 from fs.base import FS
 
 
-def copyfile(src_fs, src_path, dst_fs, dst_path, overwrite=True, chunk_size=64*1024):
+def copyfile(src_fs, src_path, dst_fs, dst_path, overwrite=True, update=False,
+             chunk_size=64*1024):
     """Copy a file from one filesystem to another. Will use system copyfile, if both files have a syspath.
-    Otherwise file will be copied a chunk at a time.
+    Otherwise file will be copied a chunk at a time. In the case where ``overwrite`` is False and
+    ``update`` is True, the behaviour of ``update`` takes precedence.
 
     :param src_fs: Source filesystem object
     :param src_path: -- Source path
     :param dst_fs: Destination filesystem object
     :param dst_path: Destination filesystem object
+    :param overwrite: Write to destination files even if they already exist
+    :param update: Write to destination files only if the source is newer
     :param chunk_size: Size of chunks to move if system copyfile is not available (default 64K)
 
     """
@@ -48,8 +54,18 @@ def copyfile(src_fs, src_path, dst_fs, dst_path, overwrite=True, chunk_size=64*1
     src_syspath = src_fs.getsyspath(src_path, allow_none=True)
     dst_syspath = dst_fs.getsyspath(dst_path, allow_none=True)
 
-    if not overwrite and dst_fs.exists(dst_path):
-        raise DestinationExistsError(dst_path)
+    if update:
+        try:
+            src_mtime = src_fs.getinfokeys(dst_path, "modified_time")["modified_time"]
+            dst_mtime = dst_fs.getinfokeys(dst_path, "modified_time")["modified_time"]
+            if src_mtime <= dst_mtime:
+                raise DestinationNotOlderError(dst_path)
+        except (KeyError, ParentDirectoryMissingError, ResourceNotFoundError,
+                ResourceInvalidError), e:
+            pass
+    elif not overwrite:
+        if dst_fs.exists(dst_path):
+            raise DestinationExistsError(dst_path)
 
     # System copy if there are two sys paths
     if src_syspath is not None and dst_syspath is not None:

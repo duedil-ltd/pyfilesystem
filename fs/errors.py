@@ -187,6 +187,11 @@ class DestinationExistsError(ResourceError):
     default_message = "Destination exists: %(path)s"
 
 
+class DestinationNotOlderError(ResourceError):
+    """Exception raised when a target destination is not older than a source."""
+    default_message = "Destination not older: %(path)s"
+
+
 class DirectoryNotEmptyError(ResourceError):
     """Exception raised when a directory to be removed is not empty."""
     default_message = "Directory is not empty: %(path)s"
