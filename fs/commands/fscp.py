@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from functools import partial
-from fs.errors import DestinationExistsError
+from fs.errors import DestinationExistsError, DestinationNotOlderError
 from fs.utils import copyfile, copyfile_non_atomic
 from fs.path import pathjoin, iswildcard
 from fs.commands.runner import Command
@@ -33,7 +33,7 @@ class FileOpThread(threading.Thread):
                     self.dest_fs.makedir(path, recursive=True, allow_recreate=True)
                 else:                                                                
                     self.action(fs, path, self.dest_fs, dest_path)
-            except DestinationExistsError, e:
+            except (DestinationExistsError, DestinationNotOlderError), e:
                 self.queue.task_done()
                 self.on_done(path_type, fs, path, self.dest_fs, dest_path, e)
             except Exception, e:                
@@ -54,10 +54,12 @@ class FScp(Command):
 Copy SOURCE to DESTINATION"""
     
     def get_action(self):
+        opt = {'update': self.options.update,
+               'overwrite': self.options.overwrite}
         if self.options.threads > 1:
-            return partial(copyfile_non_atomic, overwrite=self.options.overwrite)
+            return partial(copyfile_non_atomic, **opt)
         else:
-            return partial(copyfile, overwrite=self.options.overwrite)
+            return partial(copyfile, **opt)
     
     def get_verb(self):
         return 'copying...'
@@ -66,12 +68,20 @@ Copy SOURCE to DESTINATION"""
         optparse = super(FScp, self).get_optparse()
         optparse.add_option('-n', '--no-clobber', dest='overwrite', action="store_false", default=True,
                             help="do not overwrite an existing file")
+        optparse.add_option('-u', '--update', dest='update', action="store_true", default=False,
+                            help="copy only when the SOURCE file is newer "
+                                 "than the destination file or when the "
+                                 "destination file is missing")
         optparse.add_option('-p', '--progress', dest='progress', action="store_true", default=False,
                             help="show progress", metavar="PROGRESS")
         optparse.add_option('-t', '--threads', dest='threads', action="store", default=1,
                             help="number of threads to use", type="int", metavar="THREAD_COUNT")        
         return optparse
-        
+
+    def check_args(self, parser, options):
+        if options.update and not options.overwrite:
+            parser.error("--update and --no-clobber are mutually exclusive")
+
     def do_run(self, options, args):
                
         self.options = options 
@@ -212,7 +222,7 @@ Copy SOURCE to DESTINATION"""
             if self.options.verbose:
                 if path_type == self.DIR:
                     print "mkdir %s" % dst_fs.desc(dst_path)
-                elif not isinstance(error, DestinationExistsError):
+                elif not isinstance(error, (DestinationNotOlderError, DestinationExistsError)):
                     print "%s -> %s" % (src_fs.desc(src_path), dst_fs.desc(dst_path))
             elif self.options.progress:
                 self.done_files += 1        
