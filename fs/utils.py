@@ -30,6 +30,21 @@ from fs.errors import DestinationNotOlderError, DestinationExistsError, \
 from fs.base import FS
 
 
+def assert_write(src_fs, src_path, dst_fs, dst_path, overwrite=True, update=False):
+    if update:
+        try:
+            src_mtime = src_fs.getinfokeys(dst_path, "modified_time")["modified_time"]
+            dst_mtime = dst_fs.getinfokeys(dst_path, "modified_time")["modified_time"]
+            if src_mtime <= dst_mtime:
+                raise DestinationNotOlderError(dst_path)
+        except (KeyError, ParentDirectoryMissingError, ResourceNotFoundError,
+                ResourceInvalidError), e:
+            pass
+    elif not overwrite:
+        if dst_fs.exists(dst_path):
+            raise DestinationExistsError(dst_path)
+
+
 def copyfile(src_fs, src_path, dst_fs, dst_path, overwrite=True, update=False,
              chunk_size=64*1024):
     """Copy a file from one filesystem to another. Will use system copyfile, if both files have a syspath.
@@ -54,18 +69,7 @@ def copyfile(src_fs, src_path, dst_fs, dst_path, overwrite=True, update=False,
     src_syspath = src_fs.getsyspath(src_path, allow_none=True)
     dst_syspath = dst_fs.getsyspath(dst_path, allow_none=True)
 
-    if update:
-        try:
-            src_mtime = src_fs.getinfokeys(dst_path, "modified_time")["modified_time"]
-            dst_mtime = dst_fs.getinfokeys(dst_path, "modified_time")["modified_time"]
-            if src_mtime <= dst_mtime:
-                raise DestinationNotOlderError(dst_path)
-        except (KeyError, ParentDirectoryMissingError, ResourceNotFoundError,
-                ResourceInvalidError), e:
-            pass
-    elif not overwrite:
-        if dst_fs.exists(dst_path):
-            raise DestinationExistsError(dst_path)
+    assert_write(src_fs, src_path, dst_fs, dst_path, overwrite, update)
 
     # System copy if there are two sys paths
     if src_syspath is not None and dst_syspath is not None:
@@ -90,7 +94,8 @@ def copyfile(src_fs, src_path, dst_fs, dst_path, overwrite=True, update=False,
             src_lock.release()
 
 
-def copyfile_non_atomic(src_fs, src_path, dst_fs, dst_path, overwrite=True, chunk_size=64*1024):
+def copyfile_non_atomic(src_fs, src_path, dst_fs, dst_path, overwrite=True,
+                        update=False, chunk_size=64*1024):
     """A non atomic version of copyfile (will not block other threads using src_fs or dst_fst)
 
     :param src_fs: Source filesystem object
@@ -101,8 +106,7 @@ def copyfile_non_atomic(src_fs, src_path, dst_fs, dst_path, overwrite=True, chun
 
     """
 
-    if not overwrite and dst_fs.exists(dst_path):
-        raise DestinationExistsError(dst_path)
+    assert_write(src_fs, src_path, dst_fs, dst_path, overwrite, update)
 
     src = None
     dst = None
