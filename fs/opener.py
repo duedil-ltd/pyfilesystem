@@ -64,7 +64,8 @@ __all__ = ['OpenerError',
            'S3Opener',
            'TahoeOpener',
            'DavOpener',
-           'HTTPOpener']
+           'HTTPOpener',
+           'HDFSOpener']
 
 from fs.path import pathsplit, join, iswildcard, normpath
 from fs.osfs import OSFS
@@ -667,6 +668,43 @@ example:
         fs = HTTPFS('http://' + dirname)
         return fs, resourcename
 
+class HDFSOpener(Opener):
+    names = ['hdfs']
+    desc = """HDFS file opener. Supports a variety of filesystem operations
+that interact with HDFS via the WebHDFS API.
+
+The URI must include a HDFS namenode host or IP address. The port is optional
+and will default to 50070.
+
+examples:
+* hdfs://1.2.3.4:1234/foo/bar
+* hdfs://1.2.3.4/foo/bar
+"""
+
+    @classmethod
+    def get_fs(cls, registry, fs_name, fs_name_params, fs_path, writeable, create_dir):
+
+        if '/' not in fs_path:
+            raise OpenerError('HDFS namenode address required')
+
+        # The namenode is required.
+        namenode, path = fs_path.split('/', 1)
+        if len(path) == 0:
+            path = '/'
+
+        # Parse the port from the hostname
+        namenode_host = namenode
+        if ':' not in fs_path:
+            namenode_port = "50070"
+        else:
+            namenode_host, namenode_port = namenode.split(':')
+
+        from fs.hadoop import HadoopFS
+        return HadoopFS(
+            namenode=namenode_host,
+            port=namenode_port
+        ), path
+
 class UserDataOpener(Opener):
     names = ['appuserdata', 'appuser']
     desc = """Opens a filesystem for a per-user application directory.
@@ -854,9 +892,9 @@ opener = OpenerRegistry([OSFSOpener,
                          UserCacheOpener,
                          UserLogOpener,
                          MountOpener,
-                         MultiOpener
+                         MultiOpener,
+                         HDFSOpener
                          ])
 
 fsopen = opener.open
 fsopendir = opener.opendir
-
