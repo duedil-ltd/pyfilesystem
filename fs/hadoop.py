@@ -28,9 +28,8 @@ import pywebhdfs.errors
 #                               |_|
 #
 
+
 class HadoopFS(FS):
-    """
-    """
 
     TYPE_FILE = "FILE"
     TYPE_DIRECTORY = "DIRECTORY"
@@ -125,13 +124,8 @@ class HadoopFS(FS):
         else:
             parent_dir, _ = os.path.split(path)
             try:
-                if parent_dir != self._base("/") or self.isdir(parent_dir):
-                    self.client.make_dir(path)
-                else:
-                    print parent_dir, path
-                    raise ParentDirectoryMissingError(parent_dir)
+                self.client.make_dir(path.lstrip("/"))
             except ResourceNotFoundError:
-                print parent_dir, path
                 raise ParentDirectoryMissingError(parent_dir)
 
     def remove(self, path):
@@ -167,20 +161,20 @@ class HadoopFS(FS):
         given path.
         """
 
-        pass
+        return self._status(self._base(path))
 
     def _base(self, path):
         """
-        Return the given path, namespaced within the filesystem base.
+        Return the given path, but prefixed with the filesystem base.
         """
 
-        # TODO(tarnfeld): What kind of paths can we receive?
         if self.base:
             return os.path.join(self.base, path).lstrip("/")
         return path.lstrip("/")
 
     def _status(self, path):
         """
+        Return the FileStatus object for a given path.
         """
 
         try:
@@ -191,10 +185,11 @@ class HadoopFS(FS):
 
     def _list(self, path):
         """
+        List all files within a given directory.
         """
 
         ls = self.client.list_dir(path)
         return [
             (p["pathSuffix"], p)
-            for p in ls.get("FileStatuses", {}).get("FileStatus")
+            for p in ls.get("FileStatuses", {}).get("FileStatus", [])
         ]

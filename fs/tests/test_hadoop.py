@@ -8,7 +8,6 @@ configured with valid values.
 * PYFS_HADOOP_NAMENODE_ADDR
 * PYFS_HADOOP_NAMENODE_PORT [default=50070]
 * PYFS_HADOOP_NAMENODE_PATH [default="/"]
-* PYFS_HADOOP_DESTROY [default=0]
 
 All tests will be executed within a subdirectory "pyfs-hadoop" for safety.
 
@@ -26,7 +25,7 @@ except ImportError:
     raise unittest.SkipTest("hadoop fs wasn't importable")
 
 
-class TestHadoopFS(unittest.TestCase,FSTestCases,ThreadingTestCases):
+class TestHadoopFS(unittest.TestCase, FSTestCases, ThreadingTestCases):
 
     def setUp(self):
         namenode_host = os.environ.get("PYFS_HADOOP_NAMENODE_ADDR")
