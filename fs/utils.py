@@ -61,6 +61,8 @@ def copyfile(src_fs, src_path, dst_fs, dst_path, overwrite=True, update=False,
 
     """
 
+    assert_write(src_fs, src_path, dst_fs, dst_path, overwrite, update)
+
     # If the src and dst fs objects are the same, then use a direct copy
     if src_fs is dst_fs:
         src_fs.copy(src_path, dst_path, overwrite=overwrite)
@@ -68,8 +70,6 @@ def copyfile(src_fs, src_path, dst_fs, dst_path, overwrite=True, update=False,
 
     src_syspath = src_fs.getsyspath(src_path, allow_none=True)
     dst_syspath = dst_fs.getsyspath(dst_path, allow_none=True)
-
-    assert_write(src_fs, src_path, dst_fs, dst_path, overwrite, update)
 
     # System copy if there are two sys paths
     if src_syspath is not None and dst_syspath is not None:
