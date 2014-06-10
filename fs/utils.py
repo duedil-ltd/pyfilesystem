@@ -33,7 +33,7 @@ from fs.base import FS
 def assert_write(src_fs, src_path, dst_fs, dst_path, overwrite=True, update=False):
     if update:
         try:
-            src_mtime = src_fs.getinfokeys(dst_path, "modified_time")["modified_time"]
+            src_mtime = src_fs.getinfokeys(src_path, "modified_time")["modified_time"]
             dst_mtime = dst_fs.getinfokeys(dst_path, "modified_time")["modified_time"]
             if src_mtime <= dst_mtime:
                 raise DestinationNotOlderError(dst_path)
