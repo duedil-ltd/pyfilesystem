@@ -20,6 +20,7 @@ Here are a few of the filesystems that can be accessed with Pyfilesystem:
 * **S3FS** access files & directories stored on Amazon S3 storage
 * **TahoeLAFS** access files & directories stored on a Tahoe distributed filesystem
 * **ZipFS** access files and directories contained in a zip file
+* **HadoopFS* access files and directories stored on HDFS (requires Hadoop 2)
 
 Example
 -------
