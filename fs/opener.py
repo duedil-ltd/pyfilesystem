@@ -699,6 +699,9 @@ examples:
         else:
             namenode_host, namenode_port = namenode.split(':')
 
+        if not namenode_host:
+            raise OpenerError("No HDFS namenode host specified")
+
         from fs.hadoop import HadoopFS
         return HadoopFS(
             namenode=namenode_host,
