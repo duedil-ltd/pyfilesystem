@@ -8,14 +8,15 @@ interface for files stored on a deployment of the Hadoop Distributed Filesystem.
 Note: This filesystem is only compatible with Hadoop 2.0 or above.
 
 The `pywebhdfs` module is used as a wrapper around the Hadoop 2 WebHDFS REST
-API (http://hadoop.apache.org/docs/r1.0.4/webhdfs.html) and it's required
-WebHDFS is enabled for this filesystem to be usable.
+API (http://hadoop.apache.org/docs/r1.0.4/webhdfs.html) and it's required you
+enable WebHDFS for this filesystem to be usable.
 """
 
 import os
-from fs.errors import ParentDirectoryMissingError, ResourceNotFoundError
+from fs.errors import ParentDirectoryMissingError, ResourceNotFoundError, \
+    DestinationExistsError, RemoveRootError
 from fs.base import FS
-from fs.path import recursepath
+from fs.path import recursepath, normpath
 import pywebhdfs.webhdfs
 import pywebhdfs.errors
 
@@ -46,13 +47,35 @@ class HadoopFS(FS):
         self.base = base
         self.client = pywebhdfs.webhdfs.PyWebHdfsClient(namenode, port=port)
 
-        if len(base) > 1:
+        if base is not None and len(base) > 1:
             self.makedir(base, recursive=True, allow_recreate=True)
 
     def open(self, path, mode='r', buffering=-1, encoding=None, errors=None,
              newline=None, line_buffering=False, **kwargs):
+        """
+        Open the path with the given mode. Depending on the mode given, this
+        method will use different techniques to work with the file.
 
-        pass
+        TODO: Detail those techniques.
+        """
+
+        path = self._base(path)
+
+        # Truncate the file
+        if "w" in mode:
+            pass
+        else:
+            pass
+
+        # Create the file if needed
+        if not self.isfile(path):
+            if "w" not in mode and "a" not in mode:
+                raise  # Not found
+            if not self.isdir(os.path.dirname(path)):
+                raise  # Parent directory not found
+            # Create the file (? needed ?)
+
+        # Do some magic to support all the things.
 
     def isfile(self, path):
         """
@@ -119,12 +142,22 @@ class HadoopFS(FS):
         path = self._base(path)
         if recursive:
             for dir_path in recursepath(path):
-                if dir_path != "/":
-                    self.client.make_dir(dir_path.lstrip("/"))
+                directory = dir_path.lstrip("/")
+                if len(directory) > 0:
+                    try:
+                        if not allow_recreate and self.isdir(dir_path):
+                            raise DestinationExistsError(dir_path)
+                    except ResourceNotFoundError:
+                        self.client.make_dir(directory)
+                    else:
+                        self.client.make_dir(directory)
         else:
             parent_dir, _ = os.path.split(path)
+            directory = path.lstrip("/")
             try:
-                self.client.make_dir(path.lstrip("/"))
+                if not allow_recreate and self.isdir(directory):
+                    raise DestinationExistsError(directory)
+                self.client.make_dir(directory)
             except ResourceNotFoundError:
                 raise ParentDirectoryMissingError(parent_dir)
 
@@ -133,27 +166,33 @@ class HadoopFS(FS):
         Remove a file at the given path.
         """
 
-        pass
+        path = self._base(path)
+        self.client.delete_file_dir(path, recursive=False)
 
     def removedir(self, path, recursive=False, force=False):
         """
-        Remove a directory and it's contents. If `recursive` is set to True,
-        all directories within will also be removed. When False, an exception
-        will be raised if a directory is enountered.
+        Remove a directory. If `recursive` is set to True, all directories
+        within will also be removed. When False, an exception will be raised if
+        a directory is encountered.
 
-        The `force` argument is unused.
+        The `force` argument is ignored in this implementation.
         """
 
         path = self._base(path)
-        try:
-            self.client.delete_file_dir(path, recursive=recursive)
-        except:
-            raise
+        if path == "/":
+            raise RemoveRootError(path)
+
+        self.client.delete_file_dir(path, recursive=recursive)
 
     def rename(self, src, dest):
         """
         Rename a file or directory at the given path.
         """
+
+        src_path = self._base(src)
+        dest_path = self._base(dest)
+
+        self.client.rename_file_dir(src_path, dest_path)
 
     def getinfo(self, path):
         """
@@ -169,8 +208,8 @@ class HadoopFS(FS):
         """
 
         if self.base:
-            return os.path.join(self.base, path).lstrip("/")
-        return path.lstrip("/")
+            return normpath(os.path.join(self.base, path)).lstrip("/")
+        return normpath(path).lstrip("/")
 
     def _status(self, path):
         """
@@ -178,7 +217,7 @@ class HadoopFS(FS):
         """
 
         try:
-            status = self.client.get_file_dir_status(path)
+            status = self.client.get_file_dir_status(path.lstrip("/"))
             return status["FileStatus"]
         except pywebhdfs.errors.FileNotFound:
             raise ResourceNotFoundError(path)
@@ -188,7 +227,7 @@ class HadoopFS(FS):
         List all files within a given directory.
         """
 
-        ls = self.client.list_dir(path)
+        ls = self.client.list_dir(path.lstrip("/"))
         return [
             (p["pathSuffix"], p)
             for p in ls.get("FileStatuses", {}).get("FileStatus", [])
