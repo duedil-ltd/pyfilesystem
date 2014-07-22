@@ -207,9 +207,10 @@ class HadoopFS(FS):
         Return the given path, but prefixed with the filesystem base.
         """
 
+        path = path.lstrip("/")
         if self.base:
             return normpath(os.path.join(self.base, path)).lstrip("/")
-        return normpath(path).lstrip("/")
+        return normpath(path)
 
     def _status(self, path):
         """
