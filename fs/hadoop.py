@@ -195,12 +195,19 @@ class HadoopFS(FS):
         self.client.rename_file_dir(src_path, dest_path)
 
     def getinfo(self, path):
-        """
-        Return a dictionary of information about the file or directory at the
-        given path.
+        """Fetch information about the file or directory at the given path.
+
+        The contents of the returned dictionary are whatever the WebHDFS API
+        returns, with some fields also mapped to more commonly used keys.
+
+        :param path: a path to retrieve information for
+
+        :returns: a dictionary with path information
+
+        :raises: ResourceNotFoundError if the path does not exist
         """
 
-        return self._status(self._base(path))
+        return self._status(self._base(path), safe=False)
 
     def _base(self, path):
         """
