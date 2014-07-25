@@ -15,6 +15,7 @@ All tests will be executed within a subdirectory "pyfs-hadoop" for safety.
 
 import os
 import unittest
+import uuid
 
 from fs.tests import FSTestCases, ThreadingTestCases
 from fs.path import *
@@ -27,18 +28,28 @@ except ImportError:
 
 class TestHadoopFS(unittest.TestCase, FSTestCases, ThreadingTestCases):
 
-    def setUp(self):
-        namenode_host = os.environ.get("PYFS_HADOOP_NAMENODE_ADDR")
-        namenode_port = os.environ.get("PYFS_HADOOP_NAMENODE_PORT", "50070")
-        base_path = os.environ.get("PYFS_HADOOP_NAMENODE_PATH", "/")
+    def __init__(self, *args, **kwargs):
 
-        if not namenode_host or not namenode_port or not base_path:
-            raise unittest.SkipTest("Skipping HDFS tests due to lack of config")
+        self.namenode_host = os.environ.get("PYFS_HADOOP_NAMENODE_ADDR")
+        self.namenode_port = os.environ.get("PYFS_HADOOP_NAMENODE_PORT",
+                                            "50070")
+
+        self.base_path = os.path.join(
+            os.environ.get("PYFS_HADOOP_NAMENODE_PATH", "/"),
+            "pyfstest-" + str(uuid.uuid4())
+        )
+
+        super(TestHadoopFS, self).__init__(*args, **kwargs)
+
+    def setUp(self):
+
+        if not self.namenode_host:
+            raise unittest.SkipTest("Skipping HDFS tests (missing config)")
 
         self.fs = hadoop.HadoopFS(
-            namenode=namenode_host,
-            port=namenode_port,
-            base=base_path
+            namenode=self.namenode_host,
+            port=self.namenode_port,
+            base=self.base_path
         )
 
     def tearDown(self):
