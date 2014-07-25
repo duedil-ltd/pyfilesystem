@@ -41,9 +41,12 @@ class TestHadoopFS(unittest.TestCase, FSTestCases, ThreadingTestCases):
             base=base_path
         )
 
-        # Clean out HDFS
-        if os.environ.get("PYFS_HADOOP_DESTROY", "0") == "1":
-            self.fs.removedir("/", recursive=True, force=True)
-
     def tearDown(self):
+
+        for dir_path in self.fs.ilistdir(dirs_only=True):
+            if dir_path == "/":
+                continue
+            self.fs.removedir(dir_path, recursive=False, force=True)
+        for file_path in self.fs.ilistdir(files_only=True):
+            self.fs.remove(file_path)
         self.fs.close()
