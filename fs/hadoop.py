@@ -57,30 +57,45 @@ class HadoopFS(FS):
 
     def open(self, path, mode='r', buffering=-1, encoding=None, errors=None,
              newline=None, line_buffering=False, **kwargs):
+        """Open the given path as a file-like object.
+
+        :param path: a path that should be opened
+        :param mode: mode of file to open (supported: 'r', 'w', and 'a')
+        :param buffering: ignored
+        :param encoding: ignored
+        :param errors: ignored
+        :param newline: ignored
+        :param line_buffering: ignored
+        :returns: a file-like object
+        :raises: ParentDirectoryMissingError if an intermediate directory is missing
+                 ResourceInvalidError if an intermediate directory is a file
+                 ResourceNotFoundError if the path is not found (read mode only)
         """
-        Open the path with the given mode. Depending on the mode given, this
-        method will use different techniques to work with the file.
 
-        TODO: Detail those techniques.
-        """
+        is_dir, is_file = self._is_dir_file(self._base(path), safe=False)
 
-        path = self._base(path)
-
-        # Truncate the file
-        if "w" in mode:
-            pass
-        else:
-            pass
+        if is_dir:
+            raise ResourceInvalidError
 
         # Create the file if needed
-        if not self.isfile(path):
-            if "w" not in mode and "a" not in mode:
-                raise  # Not found
-            if not self.isdir(os.path.dirname(path)):
-                raise  # Parent directory not found
-            # Create the file (? needed ?)
+        if not is_file:
 
-        # Do some magic to support all the things.
+            if "w" not in mode and "a" not in mode:
+                raise ResourceNotFoundError
+
+            if not self.isdir(os.path.dirname(path)):
+                if self.isfile(os.path.dirname(path)):
+                    raise ResourceInvalidError
+                raise ParentDirectoryMissingError
+
+            # Create file
+            self.client.create_file(self._base(path), "")
+
+        elif "w" in mode:
+            # Truncate file
+            self.client.create_file(self._base(path), "", overwrite=True)
+
+        return _HadoopFileLike(self._base(path), self.client)
 
     def isfile(self, path):
         """
