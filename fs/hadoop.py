@@ -13,12 +13,13 @@ enable WebHDFS for this filesystem to be usable.
 """
 
 import fnmatch
+import getpass
 import os
 import re
 
 from fs.errors import ParentDirectoryMissingError, ResourceNotFoundError, \
     DestinationExistsError, RemoveRootError, ResourceInvalidError, \
-    DirectoryNotEmptyError
+    DirectoryNotEmptyError, FSError
 from fs.base import FS
 from fs.filelike import FileLikeBase
 from fs.path import recursepath, normpath, pathcombine, isprefix
@@ -40,20 +41,40 @@ class HadoopFS(FS):
     TYPE_FILE = "FILE"
     TYPE_DIRECTORY = "DIRECTORY"
 
-    def __init__(self, namenode, port="50070", base="/"):
-        """
-        Initialize an instance of the HadoopFS Filesystem class.
+    _meta = {
+        'thread_safe': False,
+    }
+
+    def __init__(self, namenode, port="50070", base="/", thread_synchronize=True):
+        """Initialize an instance of the HadoopFS Filesystem class.
+
+        Currently, only HDFS deployments with security off are supported, and the
+        HDFS user name is set to the current user.
 
         :param namenode: The namenode hostname or IP
         :param port: The WebHDFS port (defaults to 50070)
-        :param base: Base path to namespace this filesystem in
+        :param base: Base path to namespace this filesystem in. If the base
+                     path does not exist, the corresponding directory is
+                     created.
+        :raises: FSError if the base path cannot be created
         """
 
         self.base = base
-        self.client = pywebhdfs.webhdfs.PyWebHdfsClient(namenode, port=port)
+        self.client = pywebhdfs.webhdfs.PyWebHdfsClient(
+            namenode,
+            port=port,
+            user_name=getpass.getuser()
+        )
 
-        if base is not None and len(base) > 1:
-            self.makedir(base, recursive=True, allow_recreate=True)
+        # Create the HDFS base path if needed. This works as `mkdir -p`. If the remote
+        # is an existing file, an exception is thrown. Any authenticated errors will
+        # result in an exception here too.
+        try:
+            self.client.make_dir(base.lstrip("/"))
+        except pywebhdfs.errors.PyWebHdfsException, e:
+            raise FSError(msg=e.msg)
+
+        super(HadoopFS, self).__init__(thread_synchronize=thread_synchronize)
 
     def open(self, path, mode='r', buffering=-1, encoding=None, errors=None,
              newline=None, line_buffering=False, **kwargs):
