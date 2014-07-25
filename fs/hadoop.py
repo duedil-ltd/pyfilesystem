@@ -199,12 +199,24 @@ class HadoopFS(FS):
                 raise ParentDirectoryMissingError(parent_dir)
 
     def remove(self, path):
-        """
-        Remove a file at the given path.
+        """Remove a file from the filesystem.
+
+        :param path: path of the resource to remove
+        :type path: string
+
+        :returns: None
+
+        :raises `fs.errors.ParentDirectoryMissingError`: if an intermediate
+            directory is missing
+        :raises `fs.errors.ResourceInvalidError`: if the path is a directory
+        :raises `fs.errors.ResourceNotFoundError`: if the path does not exist
         """
 
-        path = self._base(path)
-        self.client.delete_file_dir(path, recursive=False)
+        hdfs_path = self._base(path)
+        info = self._status(hdfs_path, safe=False)
+        if info.get("type") == self.TYPE_DIRECTORY:
+            raise ResourceInvalidError
+        self.client.delete_file_dir(hdfs_path, recursive=False)
 
     def removedir(self, path, recursive=False, force=False):
         """
