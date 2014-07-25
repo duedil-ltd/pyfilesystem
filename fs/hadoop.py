@@ -169,36 +169,39 @@ class HadoopFS(FS):
         return list(self.ilistdirinfo(*args, **kwargs))
 
     def makedir(self, path, recursive=False, allow_recreate=False):
-        """
-        Create a directory at the path given. If the `recursive` option is
-        set to True, any directories missing in the path will also be created,
-        not just the leaf.
+        """Make a directory on the filesystem.
 
-        If `allow_recreate` is set to False, an exception will be raised when
-        the leaf directory already exists.
+        :param path: path of directory
+        :type path: string
+        :param recursive: if True, create intermediate directories if needed
+        :type recursive: bool
+        :param allow_recreate: if True, re-creating a directory is not an error
+        :type allow_create: bool
+
+        :raises `fs.errors.DestinationExistsError`: if the path is already a
+            directory, and allow_recreate is False
+        :raises `fs.errors.ParentDirectoryMissingError`: if a containing
+            directory is missing and recursive is False
+        :raises `fs.errors.ResourceInvalidError`: if a path is an existing file
         """
 
-        path = self._base(path)
-        if recursive:
-            for dir_path in recursepath(path):
-                directory = dir_path.lstrip("/")
-                if len(directory) > 0:
-                    try:
-                        if not allow_recreate and self.isdir(dir_path):
-                            raise DestinationExistsError(dir_path)
-                    except ResourceNotFoundError:
-                        self.client.make_dir(directory)
-                    else:
-                        self.client.make_dir(directory)
-        else:
-            parent_dir, _ = os.path.split(path)
-            directory = path.lstrip("/")
+        if self.isdir(path):
+            if not allow_recreate:
+                raise DestinationExistsError(path)
+            return True
+
+        if self.isfile(path):
+            raise ResourceInvalidError
+
+        parent_dir, _ = os.path.split(path)
+
+        if self.isdir(parent_dir) or recursive:
             try:
-                if not allow_recreate and self.isdir(directory):
-                    raise DestinationExistsError(directory)
-                self.client.make_dir(directory)
-            except ResourceNotFoundError:
-                raise ParentDirectoryMissingError(parent_dir)
+                self.client.make_dir(self._base(path))
+            except pywebhdfs.errors.PyWebHdfsException:
+                raise ResourceInvalidError
+        else:
+            raise ParentDirectoryMissingError(parent_dir)
 
     def remove(self, path):
         """Remove a file from the filesystem.
