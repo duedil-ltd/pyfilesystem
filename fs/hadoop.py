@@ -12,11 +12,14 @@ API (http://hadoop.apache.org/docs/r1.0.4/webhdfs.html) and it's required you
 enable WebHDFS for this filesystem to be usable.
 """
 
+import fnmatch
 import os
+import re
+
 from fs.errors import ParentDirectoryMissingError, ResourceNotFoundError, \
     DestinationExistsError, RemoveRootError
 from fs.base import FS
-from fs.path import recursepath, normpath
+from fs.path import recursepath, normpath, pathcombine
 import pywebhdfs.webhdfs
 import pywebhdfs.errors
 
@@ -102,17 +105,54 @@ class HadoopFS(FS):
         for uri, info in self.ilistdirinfo(path, **kwargs):
             yield uri
 
-    def ilistdirinfo(self, path="./", **kwargs):
-        """
+    def ilistdirinfo(self, path="./", wildcard=None, full=False,
+                     absolute=False, dirs_only=False, files_only=False):
+        """Generator yielding paths and path info under a given path.
+
         List all files and directories within a given path. This method returns
         a generator of tuples (path, info) where `info` is a dictionary
         of path attributes.
+
+        :param path: root of the path to list
+        :param wildcard: filter paths that match this wildcard
+        :param full: If True, return full paths (relative to the root)
+        :param absolute: If True, return paths beginning with /
+        :param dirs_only: If True, only retrieve directories
+        :param files_only: If True, only retrieve files
+
+        :returns: a generator yielding (path, info) tuples, where `info` is a
+                  dictionary of path attributes.
+
+        :raises `fs.errors.ResourceNotFoundError`: If the path is not found
+        :raises `fs.errors.ResourceInvalidError`: If the path exists, but is
+                not a directory
         """
 
-        path = self._base(path)
-        for uri, info in self._list(path):
-            for matching_path in self._listdir_helper(path, [uri], **kwargs):
-                yield matching_path, info
+        if wildcard is not None and not callable(wildcard):
+            wildcard_re = re.compile(fnmatch.translate(wildcard))
+            wildcard = lambda fn: bool(wildcard_re.match(fn))
+
+        if dirs_only and files_only:
+            raise ValueError("dirs_only and files_only cannot both be True")
+
+        for uri, info in self._list(self._base(path)):
+
+            if dirs_only and info["type"] != self.TYPE_DIRECTORY:
+                continue
+
+            if files_only and info["type"] != self.TYPE_FILE:
+                continue
+
+            if wildcard is not None and not wildcard(uri):
+                continue
+
+            if full or absolute:
+                uri = pathcombine(path, uri).lstrip("./")
+
+            if absolute:
+                uri = "/" + uri
+
+            yield uri, info
 
     def listdir(self, *args, **kwargs):
         """
@@ -122,9 +162,7 @@ class HadoopFS(FS):
         return list(self.ilistdir(*args, **kwargs))
 
     def listdirinfo(self, *args, **kwargs):
-        """
-        Return the results of `ilistdirinfo` as a list rather than a generator.
-        """
+        """Results of `ilistdirinfo` as a list rather than a generator."""
 
         return list(self.ilistdirinfo(*args, **kwargs))
 
