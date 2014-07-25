@@ -20,6 +20,7 @@ from fs.errors import ParentDirectoryMissingError, ResourceNotFoundError, \
     DestinationExistsError, RemoveRootError, ResourceInvalidError, \
     DirectoryNotEmptyError
 from fs.base import FS
+from fs.filelike import FileLikeBase
 from fs.path import recursepath, normpath, pathcombine
 import pywebhdfs.webhdfs
 import pywebhdfs.errors
@@ -332,3 +333,56 @@ class HadoopFS(FS):
             (p["pathSuffix"], p)
             for p in ls.get("FileStatuses", {}).get("FileStatus", [])
         ]
+
+
+class _HadoopFileLike(FileLikeBase):
+
+    def __init__(self, hdfs_path, client):
+        """HDFS file-like object constructor.
+
+        :param hdfs_path: absolute remote path
+        :param client: `pywebhdfs.webhdfs.PyWebHdfsClient` instance
+        """
+
+        self.hdfs_path = hdfs_path
+        self.client = client
+        self.eof = False
+
+        super(_HadoopFileLike, self).__init__()
+
+    def _read(self, sizehint=-1):
+        """Read entire contents of a HDFS file.
+
+        :param sizehint: ignored
+
+        :returns: string with the entire file contents or None if
+            the file has already been read
+
+        :raises: FSError if read was not successful
+        """
+
+        if self.eof:
+            return None
+        try:
+            contents = self.client.read_file(self.hdfs_path)
+            self.eof = True
+            return contents
+        except pywebhdfs.errors.PyWebHdfsException, e:
+            raise FSError(msg=e.msg)
+
+    def _write(self, data, flushing=False):
+        """Write data to the HDFS file.
+
+        :param data: string to be written
+        :param flishing: ignored
+
+        :returns: None
+
+        :raises: FSError if write was not successful
+        """
+
+        try:
+            self.client.append_file(self.hdfs_path, data)
+            return None
+        except pywebhdfs.errors.PyWebHdfsException, e:
+            raise FSError(msg=e.msg)
