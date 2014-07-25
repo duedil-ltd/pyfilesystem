@@ -21,7 +21,7 @@ from fs.errors import ParentDirectoryMissingError, ResourceNotFoundError, \
     DirectoryNotEmptyError
 from fs.base import FS
 from fs.filelike import FileLikeBase
-from fs.path import recursepath, normpath, pathcombine
+from fs.path import recursepath, normpath, pathcombine, isprefix
 import pywebhdfs.webhdfs
 import pywebhdfs.errors
 
@@ -285,14 +285,37 @@ class HadoopFS(FS):
                         pass
 
     def rename(self, src, dest):
-        """
-        Rename a file or directory at the given path.
+        """Rename a file or directory.
+
+        :param src: path to rename
+        :type src: string
+        :param dst: new name
+        :type dst: string
+
+        :raises ParentDirectoryMissingError: if a containing directory is
+            missing
+        :raises ResourceInvalidError: if the path or a parent path is not a
+            directory or src is a parent of dst or one of src or dst is a dir
+            and the other is not
+        :raises ResourceNotFoundError: if the src path does not exist
         """
 
-        src_path = self._base(src)
-        dest_path = self._base(dest)
+        src_hdfs_path = self._base(src)
+        dest_hdfs_path = self._base(dest)
 
-        self.client.rename_file_dir(src_path, dest_path)
+        src_is_dir, src_is_file = self._is_dir_file(src_hdfs_path, safe=False)
+        dest_is_dir, dest_is_file = self._is_dir_file(dest_hdfs_path, safe=False)
+
+        if not self.isdir(os.path.dirname(dest)):
+            raise ParentDirectoryMissingError
+
+        is_dirs = (src_is_dir, dest_is_dir)
+        dest_exists = (dest_is_dir or dest_is_file)
+        if isprefix(src_hdfs_path, dest_hdfs_path) or \
+                (dest_exists and any(is_dirs) and not all(is_dirs)):
+            raise ResourceInvalidError
+
+        self.client.rename_file_dir(src_hdfs_path, dest_hdfs_path)
 
     def getinfo(self, path):
         """Fetch information about the file or directory at the given path.
