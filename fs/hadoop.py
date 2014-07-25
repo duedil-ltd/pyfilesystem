@@ -323,16 +323,28 @@ class HadoopFS(FS):
                 return {}
             raise ResourceNotFoundError
 
-    def _list(self, path):
-        """
-        List all files within a given directory.
+    def _list(self, hdfs_path):
+        """Helper method to list all files within a given directory.
+
+        :param hdfs_path: absolute remote path
+
+        :returns: a generator yielding (path, info) tuples, where `info` is a
+                  dictionary of path attributes.
+
+        :raises: ResourceNotFoundError if the path does not exist
+        :raises: ResourceInvalidError if the path is not a dictionary
         """
 
-        ls = self.client.list_dir(path.lstrip("/"))
-        return [
-            (p["pathSuffix"], p)
-            for p in ls.get("FileStatuses", {}).get("FileStatus", [])
-        ]
+        try:
+            ls = self.client.list_dir(hdfs_path.lstrip("/"))
+        except pywebhdfs.errors.FileNotFound:
+            raise ResourceNotFoundError
+
+        if self._status(hdfs_path).get("type") != self.TYPE_DIRECTORY:
+            raise ResourceInvalidError
+
+        for p in ls.get("FileStatuses", {}).get("FileStatus", []):
+            yield (p["pathSuffix"], p)
 
 
 class _HadoopFileLike(FileLikeBase):
