@@ -17,7 +17,8 @@ import os
 import re
 
 from fs.errors import ParentDirectoryMissingError, ResourceNotFoundError, \
-    DestinationExistsError, RemoveRootError
+    DestinationExistsError, RemoveRootError, ResourceInvalidError, \
+    DirectoryNotEmptyError
 from fs.base import FS
 from fs.path import recursepath, normpath, pathcombine
 import pywebhdfs.webhdfs
@@ -219,19 +220,47 @@ class HadoopFS(FS):
         self.client.delete_file_dir(hdfs_path, recursive=False)
 
     def removedir(self, path, recursive=False, force=False):
-        """
-        Remove a directory. If `recursive` is set to True, all directories
-        within will also be removed. When False, an exception will be raised if
-        a directory is encountered.
+        """Remove a directory from the filesystem.
 
-        The `force` argument is ignored in this implementation.
+        :param path: path of the directory to remove
+        :type path: string
+        :param recursive: if True, empty parent directories will be removed
+        :type recursive: bool
+        :param force: if True, any directory contents will be removed
+        :type force: bool
+
+        :raises `fs.errors.DirectoryNotEmptyError`: if the directory is not
+            empty and force is False
+        :raises `fs.errors.RemoveRootError`: if path is the filesystem root
+        :raises `fs.errors.ResourceInvalidError`: if path is not a directory
+        :raises `fs.errors.ResourceNotFoundError`: if path does not exist
         """
 
-        path = self._base(path)
+        hdfs_path = self._base(path)
         if path == "/":
-            raise RemoveRootError(path)
+            raise RemoveRootError(hdfs_path)
 
-        self.client.delete_file_dir(path, recursive=recursive)
+        info = self._status(hdfs_path, safe=False)
+
+        if info.get("type") != self.TYPE_DIRECTORY:
+            raise ResourceInvalidError
+
+        try:
+            self.client.delete_file_dir(hdfs_path, recursive=force)
+        except pywebhdfs.errors.PyWebHdfsException, e:
+            if "is non empty" in e.msg:
+                raise DirectoryNotEmptyError
+            else:
+                raise FSError(msg=e.msg)
+
+        if recursive:
+            for dir_path in recursepath(path, reverse=True):
+                if dir_path != "/" and self.isdir(dir_path):
+                    try:
+                        self.client.delete_file_dir(self._base(dir_path),
+                                                    recursive=False)
+                    except pywebhdfs.errors.PyWebHdfsException:
+                        pass
 
     def rename(self, src, dest):
         """
