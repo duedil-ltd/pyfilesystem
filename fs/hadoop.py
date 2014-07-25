@@ -98,6 +98,24 @@ class HadoopFS(FS):
         status = self._status(self._base(path))
         return status.get("type") == self.TYPE_DIRECTORY
 
+    def _is_dir_file(self, hdfs_path, safe=True):
+        """Determine if path is a directory or a file.
+
+        For optimisation purposes, we make a single HTTP call to get the
+        path status and determine if the given path is a directory and if
+        it is a file.
+
+        :param hdfs_path: absolute remote path
+        :param safe: boolean indicating if exceptions should be thrown
+        :returns: tuple of booleans (is_dir?, is_file?)
+        """
+
+        status = self._status(hdfs_path)
+        return (
+            status.get("type") == self.TYPE_DIRECTORY,
+            status.get("type") == self.TYPE_FILE
+        )
+
     def ilistdir(self, path="./", **kwargs):
         """
         List all files and directories at a path. This method returns a
