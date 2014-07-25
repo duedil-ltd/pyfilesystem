@@ -99,7 +99,6 @@ class HadoopFS(FS):
         generator of matching paths as strings.
         """
 
-        path = self._base(path)
         for uri, info in self.ilistdirinfo(path, **kwargs):
             yield uri
 
