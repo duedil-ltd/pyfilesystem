@@ -212,16 +212,30 @@ class HadoopFS(FS):
             return normpath(os.path.join(self.base, path)).lstrip("/")
         return normpath(path)
 
-    def _status(self, path):
-        """
-        Return the FileStatus object for a given path.
+    def _status(self, hdfs_path, safe=True):
+        """Return the FileStatus object for a given hdfs_path.
+
+        :param hdfs_path: absolute remote path
+        :param safe: whether or not exceptions should be raised
+
+        :returns: a dictionary with the FileStatus object with a few
+            fields also mapped to more commonly used keys.
+
+        :raises: ResourceNotFoundError if the path does not exist
+            if `safe` is False
         """
 
         try:
-            status = self.client.get_file_dir_status(path.lstrip("/"))
-            return status["FileStatus"]
+            response = self.client.get_file_dir_status(hdfs_path.lstrip("/"))
+            status = response["FileStatus"]
+            status["size"] = status["length"]
+            status["accessed_time"] = status["accessTime"]
+            status["modified_time"] = status["modificationTime"]
+            return status
         except pywebhdfs.errors.FileNotFound:
-            raise ResourceNotFoundError(path)
+            if safe:
+                return {}
+            raise ResourceNotFoundError
 
     def _list(self, path):
         """
