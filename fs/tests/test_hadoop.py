@@ -50,3 +50,19 @@ class TestHadoopFS(unittest.TestCase, FSTestCases, ThreadingTestCases):
         for file_path in self.fs.ilistdir(files_only=True):
             self.fs.remove(file_path)
         self.fs.close()
+
+    @unittest.skip("HadoopFS does not support seek")
+    def test_readwriteappendseek(self):
+        pass
+
+    @unittest.skip("HadoopFS does not support truncate")
+    def test_truncate(self):
+        pass
+
+    @unittest.skip("HadoopFS does not support truncate")
+    def test_truncate_to_larger_size(self):
+        pass
+
+    @unittest.skip("HadoopFS does not support seek")
+    def test_write_past_end_of_file(self):
+        pass
