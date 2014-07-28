@@ -119,8 +119,10 @@ class HadoopFS(FS):
         return _HadoopFileLike(self._base(path), self.client)
 
     def isfile(self, path):
-        """
-        Is there a file at the given path?
+        """Check if a path references a file.
+
+        :param path: a path in the filesystem
+        :rtype: bool
         """
 
         status = self._status(self._base(path))
