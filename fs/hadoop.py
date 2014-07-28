@@ -129,8 +129,10 @@ class HadoopFS(FS):
         return status.get("type") == self.TYPE_FILE
 
     def isdir(self, path):
-        """
-        Is there a directory at the given path?
+        """Check if a path references a directory.
+
+        :param path: a path in the filesystem
+        :rtype: bool
         """
 
         status = self._status(self._base(path))
