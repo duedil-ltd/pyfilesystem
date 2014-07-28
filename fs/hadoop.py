@@ -157,7 +157,8 @@ class HadoopFS(FS):
         )
 
     def ilistdir(self, path="./", **kwargs):
-        """
+        """Generator yielding the files and directories under a given path.
+
         List all files and directories at a path. This method returns a
         generator of matching paths as strings.
         """
