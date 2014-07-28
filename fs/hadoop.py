@@ -216,9 +216,7 @@ class HadoopFS(FS):
             yield uri, info
 
     def listdir(self, *args, **kwargs):
-        """
-        Return the results of `ilistdir` as a list rather than a generator.
-        """
+        """Results of `ilistdir` as a list rather than a generator."""
 
         return list(self.ilistdir(*args, **kwargs))
 
