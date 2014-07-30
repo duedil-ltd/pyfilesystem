@@ -273,12 +273,14 @@ class HadoopFS(FS):
         :raises `fs.errors.ResourceInvalidError`: if a path is an existing file
         """
 
-        if self.isdir(path):
+        is_dir, is_file = self._is_dir_file(self._base(path), safe=True)
+
+        if is_dir:
             if not allow_recreate:
                 raise fs.errors.DestinationExistsError(path)
             return True
 
-        if self.isfile(path):
+        if is_file:
             raise fs.errors.ResourceInvalidError
 
         parent_dir, _ = os.path.split(path)
