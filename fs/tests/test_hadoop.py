@@ -81,3 +81,7 @@ class TestHadoopFS(unittest.TestCase, FSTestCases, ThreadingTestCases):
     @unittest.skip("HadoopFS.makedir() is not atomic")
     def test_makedir_winner(self):
         pass
+
+    @unittest.skip("HadoopFS does not support concurrent writes")
+    def test_concurrent_copydir(self):
+        pass
