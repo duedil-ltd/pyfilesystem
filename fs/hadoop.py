@@ -14,12 +14,13 @@ enable WebHDFS for this filesystem to be usable.
 
 import fnmatch
 import getpass
+import json
 import os
 import re
 
 from fs.errors import ParentDirectoryMissingError, ResourceNotFoundError, \
     DestinationExistsError, RemoveRootError, ResourceInvalidError, \
-    DirectoryNotEmptyError, FSError
+    DirectoryNotEmptyError, FSError, ResourceLockedError
 from fs.base import FS
 from fs.filelike import FileLikeBase
 from fs.path import recursepath, normpath, pathcombine, isprefix
@@ -36,16 +37,41 @@ import pywebhdfs.errors
 #
 
 
+def hdfs_errors(func):
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except pywebhdfs.errors.PyWebHdfsException, e:
+            try:
+                error = json.loads(e.msg)
+            except:
+                error = {}
+                pass
+
+            err_msg = error.get("RemoteException", {}).get("message", "")
+            exception_str = error.get("RemoteException", {}).get("exception")
+
+            if "is non empty" in err_msg:
+                raise DirectoryNotEmptyError
+
+            if "Parent path is not a directory" in err_msg:
+                raise ResourceInvalidError
+
+            if exception_str == "LeaseExpiredException" or \
+                    exception_str == "AlreadyBeingCreatedException":
+                raise ResourceLockedError
+
+            raise FSError(msg=e.msg)
+    return wrapper
+
+
 class HadoopFS(FS):
 
     TYPE_FILE = "FILE"
     TYPE_DIRECTORY = "DIRECTORY"
 
-    _meta = {
-        'thread_safe': False,
-    }
-
-    def __init__(self, namenode, port="50070", base="/", thread_synchronize=True):
+    @hdfs_errors
+    def __init__(self, namenode, port="50070", base="/", thread_synchronize=False):
         """Initialize an instance of the HadoopFS Filesystem class.
 
         Currently, only HDFS deployments with security off are supported, and the
@@ -69,13 +95,11 @@ class HadoopFS(FS):
         # Create the HDFS base path if needed. This works as `mkdir -p`. If the remote
         # is an existing file, an exception is thrown. Any authenticated errors will
         # result in an exception here too.
-        try:
-            self.client.make_dir(base.lstrip("/"))
-        except pywebhdfs.errors.PyWebHdfsException, e:
-            raise FSError(msg=e.msg)
+        self.client.make_dir(base.lstrip("/"))
 
         super(HadoopFS, self).__init__(thread_synchronize=thread_synchronize)
 
+    @hdfs_errors
     def open(self, path, mode='r', buffering=-1, encoding=None, errors=None,
              newline=None, line_buffering=False, **kwargs):
         """Open the given path as a file-like object.
@@ -225,6 +249,7 @@ class HadoopFS(FS):
 
         return list(self.ilistdirinfo(*args, **kwargs))
 
+    @hdfs_errors
     def makedir(self, path, recursive=False, allow_recreate=False):
         """Make a directory on the filesystem.
 
@@ -253,13 +278,11 @@ class HadoopFS(FS):
         parent_dir, _ = os.path.split(path)
 
         if self.isdir(parent_dir) or recursive:
-            try:
-                self.client.make_dir(self._base(path))
-            except pywebhdfs.errors.PyWebHdfsException:
-                raise ResourceInvalidError
+            self.client.make_dir(self._base(path))
         else:
             raise ParentDirectoryMissingError(parent_dir)
 
+    @hdfs_errors
     def remove(self, path):
         """Remove a file from the filesystem.
 
@@ -280,6 +303,7 @@ class HadoopFS(FS):
             raise ResourceInvalidError
         self.client.delete_file_dir(hdfs_path, recursive=False)
 
+    @hdfs_errors
     def removedir(self, path, recursive=False, force=False):
         """Remove a directory from the filesystem.
 
@@ -306,13 +330,7 @@ class HadoopFS(FS):
         if info.get("type") != self.TYPE_DIRECTORY:
             raise ResourceInvalidError
 
-        try:
-            self.client.delete_file_dir(hdfs_path, recursive=force)
-        except pywebhdfs.errors.PyWebHdfsException, e:
-            if "is non empty" in e.msg:
-                raise DirectoryNotEmptyError
-            else:
-                raise FSError(msg=e.msg)
+        self.client.delete_file_dir(hdfs_path, recursive=force)
 
         if recursive:
             for dir_path in recursepath(path, reverse=True):
@@ -323,6 +341,7 @@ class HadoopFS(FS):
                     except pywebhdfs.errors.PyWebHdfsException:
                         pass
 
+    @hdfs_errors
     def rename(self, src, dest):
         """Rename a file or directory.
 
@@ -385,6 +404,7 @@ class HadoopFS(FS):
             return normpath(os.path.join(self.base, path)).lstrip("/")
         return normpath(path)
 
+    @hdfs_errors
     def _status(self, hdfs_path, safe=True):
         """Return the FileStatus object for a given hdfs_path.
 
@@ -410,6 +430,7 @@ class HadoopFS(FS):
                 return {}
             raise ResourceNotFoundError
 
+    @hdfs_errors
     def _list(self, hdfs_path):
         """Helper method to list all files within a given directory.
 
@@ -449,6 +470,7 @@ class _HadoopFileLike(FileLikeBase):
 
         super(_HadoopFileLike, self).__init__()
 
+    @hdfs_errors
     def _read(self, sizehint=-1):
         """Read entire contents of a HDFS file.
 
@@ -462,13 +484,12 @@ class _HadoopFileLike(FileLikeBase):
 
         if self.eof:
             return None
-        try:
-            contents = self.client.read_file(self.hdfs_path)
-            self.eof = True
-            return contents
-        except pywebhdfs.errors.PyWebHdfsException, e:
-            raise FSError(msg=e.msg)
 
+        contents = self.client.read_file(self.hdfs_path)
+        self.eof = True
+        return contents
+
+    @hdfs_errors
     def _write(self, data, flushing=False):
         """Write data to the HDFS file.
 
@@ -480,8 +501,5 @@ class _HadoopFileLike(FileLikeBase):
         :raises: FSError if write was not successful
         """
 
-        try:
-            self.client.append_file(self.hdfs_path, data)
-            return None
-        except pywebhdfs.errors.PyWebHdfsException, e:
-            raise FSError(msg=e.msg)
+        self.client.append_file(self.hdfs_path, data)
+        return None
