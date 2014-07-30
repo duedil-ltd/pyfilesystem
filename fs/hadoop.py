@@ -18,14 +18,13 @@ import json
 import os
 import re
 
-from fs.errors import ParentDirectoryMissingError, ResourceNotFoundError, \
-    DestinationExistsError, RemoveRootError, ResourceInvalidError, \
-    DirectoryNotEmptyError, FSError, ResourceLockedError
-from fs.base import FS
-from fs.filelike import FileLikeBase
-from fs.path import recursepath, normpath, pathcombine, isprefix
 import pywebhdfs.webhdfs
 import pywebhdfs.errors
+
+import fs.errors
+from fs.base import FS
+from fs.filelike import FileLikeBase
+from fs.path import isprefix, normpath, pathcombine, recursepath
 
 #
 #  _   _           _                   _____ ____
@@ -52,16 +51,16 @@ def hdfs_errors(func):
             exception_str = error.get("RemoteException", {}).get("exception")
 
             if "is non empty" in err_msg:
-                raise DirectoryNotEmptyError
+                raise fs.errors.DirectoryNotEmptyError(msg=e.msg)
 
             if "Parent path is not a directory" in err_msg:
-                raise ResourceInvalidError
+                raise fs.errors.ResourceInvalidError(msg=e.msg)
 
             if exception_str == "LeaseExpiredException" or \
                     exception_str == "AlreadyBeingCreatedException":
-                raise ResourceLockedError
+                raise fs.errors.ResourceLockedError(msg=e.msg)
 
-            raise FSError(msg=e.msg)
+            raise fs.errors.FSError(msg=e.msg)
     return wrapper
 
 
@@ -120,18 +119,18 @@ class HadoopFS(FS):
         is_dir, is_file = self._is_dir_file(self._base(path), safe=False)
 
         if is_dir:
-            raise ResourceInvalidError
+            raise fs.errors.ResourceInvalidError
 
         # Create the file if needed
         if not is_file:
 
             if "w" not in mode and "a" not in mode:
-                raise ResourceNotFoundError
+                raise fs.errors.ResourceNotFoundError
 
             if not self.isdir(os.path.dirname(path)):
                 if self.isfile(os.path.dirname(path)):
-                    raise ResourceInvalidError
-                raise ParentDirectoryMissingError
+                    raise fs.errors.ResourceInvalidError
+                raise fs.errors.ParentDirectoryMissingError
 
             # Create file
             self.client.create_file(self._base(path), "")
@@ -269,18 +268,18 @@ class HadoopFS(FS):
 
         if self.isdir(path):
             if not allow_recreate:
-                raise DestinationExistsError(path)
+                raise fs.errors.DestinationExistsError(path)
             return True
 
         if self.isfile(path):
-            raise ResourceInvalidError
+            raise fs.errors.ResourceInvalidError
 
         parent_dir, _ = os.path.split(path)
 
         if self.isdir(parent_dir) or recursive:
             self.client.make_dir(self._base(path))
         else:
-            raise ParentDirectoryMissingError(parent_dir)
+            raise fs.errors.ParentDirectoryMissingError(parent_dir)
 
     @hdfs_errors
     def remove(self, path):
@@ -300,7 +299,7 @@ class HadoopFS(FS):
         hdfs_path = self._base(path)
         info = self._status(hdfs_path, safe=False)
         if info.get("type") == self.TYPE_DIRECTORY:
-            raise ResourceInvalidError
+            raise fs.errors.ResourceInvalidError
         self.client.delete_file_dir(hdfs_path, recursive=False)
 
     @hdfs_errors
@@ -323,12 +322,12 @@ class HadoopFS(FS):
 
         hdfs_path = self._base(path)
         if path == "/":
-            raise RemoveRootError(hdfs_path)
+            raise fs.errors.RemoveRootError(hdfs_path)
 
         info = self._status(hdfs_path, safe=False)
 
         if info.get("type") != self.TYPE_DIRECTORY:
-            raise ResourceInvalidError
+            raise fs.errors.ResourceInvalidError
 
         self.client.delete_file_dir(hdfs_path, recursive=force)
 
@@ -365,13 +364,13 @@ class HadoopFS(FS):
         dest_is_dir, dest_is_file = self._is_dir_file(dest_hdfs_path, safe=False)
 
         if not self.isdir(os.path.dirname(dest)):
-            raise ParentDirectoryMissingError
+            raise fs.errors.ParentDirectoryMissingError
 
         is_dirs = (src_is_dir, dest_is_dir)
         dest_exists = (dest_is_dir or dest_is_file)
         if isprefix(src_hdfs_path, dest_hdfs_path) or \
                 (dest_exists and any(is_dirs) and not all(is_dirs)):
-            raise ResourceInvalidError
+            raise fs.errors.ResourceInvalidError
 
         self.client.rename_file_dir(src_hdfs_path, dest_hdfs_path)
 
@@ -428,7 +427,7 @@ class HadoopFS(FS):
         except pywebhdfs.errors.FileNotFound:
             if safe:
                 return {}
-            raise ResourceNotFoundError
+            raise fs.errors.ResourceNotFoundError
 
     @hdfs_errors
     def _list(self, hdfs_path):
@@ -446,10 +445,10 @@ class HadoopFS(FS):
         try:
             ls = self.client.list_dir(hdfs_path.lstrip("/"))
         except pywebhdfs.errors.FileNotFound:
-            raise ResourceNotFoundError
+            raise fs.errors.ResourceNotFoundError
 
         if self._status(hdfs_path).get("type") != self.TYPE_DIRECTORY:
-            raise ResourceInvalidError
+            raise fs.errors.ResourceInvalidError
 
         for p in ls.get("FileStatuses", {}).get("FileStatus", []):
             yield (p["pathSuffix"], p)
