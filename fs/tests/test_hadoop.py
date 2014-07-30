@@ -77,3 +77,7 @@ class TestHadoopFS(unittest.TestCase, FSTestCases, ThreadingTestCases):
     @unittest.skip("HadoopFS does not support seek")
     def test_write_past_end_of_file(self):
         pass
+
+    @unittest.skip("HadoopFS.makedir() is not atomic")
+    def test_makedir_winner(self):
+        pass
