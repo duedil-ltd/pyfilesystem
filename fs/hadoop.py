@@ -2,8 +2,9 @@
 fs.hadoop
 =========
 
-This module provides the class 'HadoopFS', which implements the FS filesystem
-interface for files stored on a deployment of the Hadoop Distributed Filesystem.
+This module provides the class `HadoopFS`, which implements the FS filesystem
+interface for files stored on a deployment of the Hadoop Distributed
+Filesystem.
 
 Note: This filesystem is only compatible with Hadoop 2.0 or above.
 
@@ -71,11 +72,12 @@ class HadoopFS(FS):
     TYPE_DIRECTORY = "DIRECTORY"
 
     @hdfs_errors
-    def __init__(self, namenode, port="50070", base="/", thread_synchronize=False):
+    def __init__(self, namenode, port="50070", base="/",
+                 thread_synchronize=False):
         """Initialize an instance of the HadoopFS Filesystem class.
 
-        Currently, only HDFS deployments with security off are supported, and the
-        HDFS user name is set to the current user.
+        Currently, only HDFS deployments with security off are supported, and
+        the HDFS user name is set to the current user.
 
         :param namenode: The namenode hostname or IP
         :param port: The WebHDFS port (defaults to 50070)
@@ -92,9 +94,9 @@ class HadoopFS(FS):
             user_name=getpass.getuser()
         )
 
-        # Create the HDFS base path if needed. This works as `mkdir -p`. If the remote
-        # is an existing file, an exception is thrown. Any authenticated errors will
-        # result in an exception here too.
+        # Create the HDFS base path if needed. This works as `mkdir -p`. If
+        # the remote is an existing file, an exception is thrown. Any
+        # authenticated errors will result in an exception here too.
         self.client.make_dir(base.lstrip("/"))
 
         super(HadoopFS, self).__init__(thread_synchronize=thread_synchronize)
@@ -111,10 +113,14 @@ class HadoopFS(FS):
         :param errors: ignored
         :param newline: ignored
         :param line_buffering: ignored
+
         :returns: a file-like object
-        :raises: ParentDirectoryMissingError if an intermediate directory is missing
-                 ResourceInvalidError if an intermediate directory is a file
-                 ResourceNotFoundError if the path is not found (read mode only)
+
+        :raises: ParentDirectoryMissingError if an intermediate directory is
+            missing
+        :raises: ResourceInvalidError if an intermediate directory is a file
+        :raises: ResourceNotFoundError if the path is not found (read mode
+            only)
         """
 
         is_dir, is_file = self._is_dir_file(self._base(path), safe=False)
@@ -362,7 +368,8 @@ class HadoopFS(FS):
         dest_hdfs_path = self._base(dest)
 
         src_is_dir, src_is_file = self._is_dir_file(src_hdfs_path, safe=False)
-        dest_is_dir, dest_is_file = self._is_dir_file(dest_hdfs_path, safe=False)
+        dest_is_dir, dest_is_file = self._is_dir_file(dest_hdfs_path,
+                                                      safe=False)
 
         if not self.isdir(os.path.dirname(dest)):
             raise fs.errors.ParentDirectoryMissingError
