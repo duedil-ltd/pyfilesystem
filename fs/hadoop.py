@@ -56,8 +56,9 @@ def hdfs_errors(func):
             if "Parent path is not a directory" in err_msg:
                 raise fs.errors.ResourceInvalidError(msg=e.msg)
 
-            if exception_str == "LeaseExpiredException" or \
-                    exception_str == "AlreadyBeingCreatedException":
+            if exception_str in ("LeaseExpiredException",
+                                 "AlreadyBeingCreatedException",
+                                 "FileAlreadyExistsException"):
                 raise fs.errors.ResourceLockedError(msg=e.msg)
 
             raise fs.errors.FSError(msg=e.msg)
