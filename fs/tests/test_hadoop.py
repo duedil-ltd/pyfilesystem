@@ -34,10 +34,8 @@ class TestHadoopFS(unittest.TestCase, FSTestCases, ThreadingTestCases):
         self.namenode_port = os.environ.get("PYFS_HADOOP_NAMENODE_PORT",
                                             "50070")
 
-        self.base_path = os.path.join(
-            os.environ.get("PYFS_HADOOP_NAMENODE_PATH", "/"),
-            "pyfstest-" + str(uuid.uuid4())
-        )
+        self.root_path = os.environ.get("PYFS_HADOOP_NAMENODE_PATH", "/")
+        self.base_path = "pyfstest-" + str(uuid.uuid4())
 
         super(TestHadoopFS, self).__init__(*args, **kwargs)
 
@@ -46,10 +44,16 @@ class TestHadoopFS(unittest.TestCase, FSTestCases, ThreadingTestCases):
         if not self.namenode_host:
             raise unittest.SkipTest("Skipping HDFS tests (missing config)")
 
+        self.root_fs = hadoop.HadoopFS(
+            namenode=self.namenode_host,
+            port=self.namenode_port,
+            base=self.root_path
+        )
+
         self.fs = hadoop.HadoopFS(
             namenode=self.namenode_host,
             port=self.namenode_port,
-            base=self.base_path
+            base=os.path.join(self.root_path, self.base_path)
         )
 
     def tearDown(self):
@@ -61,6 +65,9 @@ class TestHadoopFS(unittest.TestCase, FSTestCases, ThreadingTestCases):
         for file_path in self.fs.ilistdir(files_only=True):
             self.fs.remove(file_path)
         self.fs.close()
+
+        self.root_fs.removedir(self.base_path)
+        self.root_fs.close()
 
     @unittest.skip("HadoopFS does not support seek")
     def test_readwriteappendseek(self):
