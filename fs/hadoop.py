@@ -372,8 +372,12 @@ class HadoopFS(FS):
         return self._status(self._base(path), safe=False)
 
     def _base(self, path):
-        """
-        Return the given path, but prefixed with the filesystem base.
+        """Return the given path, but prefixed with the filesystem base.
+
+        :param path: path in the filesystem instance
+        :type path: string
+
+        :returns: absolute remote path
         """
 
         path = path.lstrip("/")
