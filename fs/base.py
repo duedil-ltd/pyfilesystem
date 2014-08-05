@@ -1009,7 +1009,10 @@ class FS(object):
                 try:
                     for filename, info in listdir(current_path):
                         path = pathcombine(current_path, filename)
-                        is_dir = info.get("is_dir", self.isdir(path))
+                        try:
+                            is_dir = info["is_dir"]
+                        except AttributeError:
+                            is_dir = self.isdir(path)
                         if is_dir:
                             if dir_wildcard(path):
                                 dirs_append(path)
