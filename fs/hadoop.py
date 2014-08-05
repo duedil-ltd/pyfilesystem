@@ -243,6 +243,8 @@ class HadoopFS(FS):
             if absolute:
                 uri = "/" + uri
 
+            info["is_dir"] = (info["type"] == self.TYPE_DIRECTORY)
+
             yield uri, info
 
     def listdir(self, *args, **kwargs):
