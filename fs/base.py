@@ -980,11 +980,11 @@ class FS(object):
         def listdir(path, *args, **kwargs):
             if ignore_errors:
                 try:
-                    return self.listdir(path, *args, **kwargs)
+                    return self.ilistdirinfo(path, *args, **kwargs)
                 except:
                     return []
             else:
-                return self.listdir(path, *args, **kwargs)
+                return self.ilistdirinfo(path, *args, **kwargs)
 
         if wildcard is None:
             wildcard = lambda f: True
@@ -1002,15 +1002,15 @@ class FS(object):
             dirs = [path]
             dirs_append = dirs.append
             dirs_pop = dirs.pop
-            isdir = self.isdir
             while dirs:
                 current_path = dirs_pop()
                 paths = []
                 paths_append = paths.append
                 try:
-                    for filename in listdir(current_path):
+                    for filename, info in listdir(current_path):
                         path = pathcombine(current_path, filename)
-                        if isdir(path):
+                        is_dir = info.get("is_dir", self.isdir(path))
+                        if is_dir:
                             if dir_wildcard(path):
                                 dirs_append(path)
                         else:
@@ -1026,13 +1026,16 @@ class FS(object):
 
             def recurse(recurse_path):
                 try:
-                    for path in listdir(recurse_path, wildcard=dir_wildcard, full=True, dirs_only=True):
+                    for path, _ in listdir(recurse_path, wildcard=dir_wildcard, full=True, dirs_only=True):
                         for p in recurse(path):
                             yield p
                 except ResourceNotFoundError:
                     # Could happen if another thread / process deletes something whilst we are walking
                     pass
-                yield (recurse_path, listdir(recurse_path, wildcard=wildcard, files_only=True))
+                yield (
+                    recurse_path,
+                    [f for f, i in listdir(recurse_path, wildcard=wildcard, files_only=True)]
+                )
 
             for p in recurse(path):
                 yield p
