@@ -90,16 +90,21 @@ def copyfile(src_fs, src_path, dst_fs, dst_path, overwrite=True, update=False,
             src_lock.release()
 
 
-def copyfile_non_atomic(src_fs, src_path, dst_fs, dst_path, overwrite=True, chunk_size=64*1024):
+def copyfile_non_atomic(src_fs, src_path, dst_fs, dst_path, overwrite=True, update=False,
+                        chunk_size=64*1024):
     """A non atomic version of copyfile (will not block other threads using src_fs or dst_fst)
 
     :param src_fs: Source filesystem object
     :param src_path: -- Source path
     :param dst_fs: Destination filesystem object
     :param dst_path: Destination filesystem object
+    :param update: Write to destination files only if the source is newer
     :param chunk_size: Size of chunks to move if system copyfile is not available (default 64K)
 
     """
+
+    if update:
+        raise NotImplementedError
 
     if not overwrite and dst_fs.exists(dst_path):
         raise DestinationExistsError(dst_path)
