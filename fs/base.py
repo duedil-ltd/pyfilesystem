@@ -1011,7 +1011,7 @@ class FS(object):
                         path = pathcombine(current_path, filename)
                         try:
                             is_dir = info["is_dir"]
-                        except AttributeError:
+                        except KeyError:
                             is_dir = self.isdir(path)
                         if is_dir:
                             if dir_wildcard(path):
