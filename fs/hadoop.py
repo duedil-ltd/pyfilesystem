@@ -459,8 +459,14 @@ class HadoopFS(FS):
         except pywebhdfs.errors.FileNotFound:
             raise fs.errors.ResourceNotFoundError
 
-        if self._status(hdfs_path).get("type") != self.TYPE_DIRECTORY:
-            raise fs.errors.ResourceInvalidError
+        # Figure out if we're performing a list operation on a file
+        files = ls["FileStatuses"]["FileStatus"]
+        if len(files) > 0:
+            for fstatus in files:
+                if fstatus["pathSuffix"]:
+                    break
+            else:
+                raise fs.errors.ResourceInvalidError
 
         for p in ls.get("FileStatuses", {}).get("FileStatus", []):
             yield (p["pathSuffix"], p)
