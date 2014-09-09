@@ -451,7 +451,7 @@ class HadoopFS(FS):
                   dictionary of path attributes.
 
         :raises: ResourceNotFoundError if the path does not exist
-        :raises: ResourceInvalidError if the path is not a dictionary
+        :raises: ResourceInvalidError if the path is not a directory
         """
 
         try:
