@@ -685,22 +685,26 @@ examples:
     def get_fs(cls, registry, fs_name, fs_name_params, fs_path, writeable, create_dir):
 
         if '/' not in fs_path:
-            raise OpenerError('HDFS namenode address required')
-
-        # The namenode is required.
-        namenode, path = fs_path.split('/', 1)
-        if len(path) == 0:
-            path = '/'
+            namenode, path = fs_path, '/'
+        else:
+            namenode, path = fs_path.split('/', 1)
+            if len(path) == 0:
+                path = '/'
 
         # Parse the port from the hostname
-        namenode_host = namenode
-        if ':' not in fs_path:
-            namenode_port = "50070"
-        else:
+        namenode_host, namenode_port = namenode, ''
+        if ':' in fs_path:
             namenode_host, namenode_port = namenode.split(':')
 
         if not namenode_host:
-            raise OpenerError("No HDFS namenode host specified")
+            env_host = os.environ.get("PYFS_HADOOP_NAMENODE_ADDR")
+            if env_host:
+                namenode_host = env_host
+            else:
+                raise OpenerError("No HDFS namenode host specified")
+
+        if not namenode_port:
+            namenode_port = os.environ.get("PYFS_HADOOP_NAMENODE_PORT") or "50070"
 
         from fs.hadoop import HadoopFS
         return HadoopFS(
