@@ -108,7 +108,7 @@ class HadoopFS(FS):
 
         :param path: a path that should be opened
         :param mode: mode of file to open (supported: 'r', 'w', and 'a')
-        :param buffering: ignored
+        :param buffering: size of buffer
         :param encoding: ignored
         :param errors: ignored
         :param newline: ignored
@@ -127,6 +127,11 @@ class HadoopFS(FS):
 
         if is_dir:
             raise fs.errors.ResourceInvalidError
+
+        if buffering == 1:
+            self.buffersize = 4*1024
+        elif buffering > 1:
+            self.buffersize = buffering
 
         # Create the file if needed
         if not is_file:
@@ -502,7 +507,8 @@ class _HadoopFileLike(FileLikeBase):
         if self.eof:
             return None
 
-        contents = self.client.read_file(self.hdfs_path)
+        contents = self.client.read_file(self.hdfs_path, buffersize=self.buffersize)
+
         self.eof = True
         return contents
 
@@ -518,5 +524,5 @@ class _HadoopFileLike(FileLikeBase):
         :raises: FSError if write was not successful
         """
 
-        self.client.append_file(self.hdfs_path, data, 16384)
+        self.client.append_file(self.hdfs_path, data, buffersize=self.buffersize)
         return None
