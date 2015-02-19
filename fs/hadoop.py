@@ -518,5 +518,5 @@ class _HadoopFileLike(FileLikeBase):
         :raises: FSError if write was not successful
         """
 
-        self.client.append_file(self.hdfs_path, data)
+        self.client.append_file(self.hdfs_path, data, 16384)
         return None
