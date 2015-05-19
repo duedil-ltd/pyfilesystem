@@ -64,7 +64,8 @@ __all__ = ['OpenerError',
            'S3Opener',
            'TahoeOpener',
            'DavOpener',
-           'HTTPOpener']
+           'HTTPOpener',
+           'HDFSOpener']
 
 from fs.path import pathsplit, join, iswildcard, normpath
 from fs.osfs import OSFS
@@ -667,6 +668,50 @@ example:
         fs = HTTPFS('http://' + dirname)
         return fs, resourcename
 
+class HDFSOpener(Opener):
+    names = ['hdfs']
+    desc = """HDFS file opener. Supports a variety of filesystem operations
+that interact with HDFS via the WebHDFS API.
+
+The URI must include a HDFS namenode host or IP address. The port is optional
+and will default to 50070.
+
+examples:
+* hdfs://1.2.3.4:1234/foo/bar
+* hdfs://1.2.3.4/foo/bar
+"""
+
+    @classmethod
+    def get_fs(cls, registry, fs_name, fs_name_params, fs_path, writeable, create_dir):
+
+        if '/' not in fs_path:
+            namenode, path = fs_path, '/'
+        else:
+            namenode, path = fs_path.split('/', 1)
+            if len(path) == 0:
+                path = '/'
+
+        # Parse the port from the hostname
+        namenode_host, namenode_port = namenode, ''
+        if ':' in fs_path:
+            namenode_host, namenode_port = namenode.split(':')
+
+        if not namenode_host:
+            env_host = os.environ.get("PYFS_HADOOP_NAMENODE_ADDR")
+            if env_host:
+                namenode_host = env_host
+            else:
+                raise OpenerError("No HDFS namenode host specified")
+
+        if not namenode_port:
+            namenode_port = os.environ.get("PYFS_HADOOP_NAMENODE_PORT") or "50070"
+
+        from fs.hadoop import HadoopFS
+        return HadoopFS(
+            namenode=namenode_host,
+            port=namenode_port
+        ), path
+
 class UserDataOpener(Opener):
     names = ['appuserdata', 'appuser']
     desc = """Opens a filesystem for a per-user application directory.
@@ -854,9 +899,9 @@ opener = OpenerRegistry([OSFSOpener,
                          UserCacheOpener,
                          UserLogOpener,
                          MountOpener,
-                         MultiOpener
+                         MultiOpener,
+                         HDFSOpener
                          ])
 
 fsopen = opener.open
 fsopendir = opener.opendir
-

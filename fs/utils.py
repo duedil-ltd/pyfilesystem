@@ -102,6 +102,7 @@ def copyfile_non_atomic(src_fs, src_path, dst_fs, dst_path, overwrite=True,
     :param src_path: -- Source path
     :param dst_fs: Destination filesystem object
     :param dst_path: Destination filesystem object
+    :param update: Write to destination files only if the source is newer
     :param chunk_size: Size of chunks to move if system copyfile is not available (default 64K)
 
     """
