@@ -15,6 +15,7 @@ enable WebHDFS for this filesystem to be usable.
 
 import fnmatch
 import getpass
+import io
 import json
 import os
 import re
@@ -129,7 +130,7 @@ class HadoopFS(FS):
             raise fs.errors.ResourceInvalidError
 
         if buffering == 1:
-            self.buffersize = 4*1024
+            self.buffersize = io.DEFAULT_BUFFER_SIZE
         elif buffering > 1:
             self.buffersize = buffering
 
