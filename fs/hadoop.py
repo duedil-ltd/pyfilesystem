@@ -74,7 +74,7 @@ class HadoopFS(FS):
 
     @hdfs_errors
     def __init__(self, namenode, port="50070", base="/",
-                 thread_synchronize=False):
+                 thread_synchronize=False, user=getpass.getuser()):
         """Initialize an instance of the HadoopFS Filesystem class.
 
         Currently, only HDFS deployments with security off are supported, and
@@ -92,7 +92,7 @@ class HadoopFS(FS):
         self.client = pywebhdfs.webhdfs.PyWebHdfsClient(
             namenode,
             port=port,
-            user_name=getpass.getuser()
+            user_name=user
         )
 
         # Create the HDFS base path if needed. This works as `mkdir -p`. If
