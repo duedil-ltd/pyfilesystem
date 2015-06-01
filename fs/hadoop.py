@@ -129,9 +129,9 @@ class HadoopFS(FS):
         if is_dir:
             raise fs.errors.ResourceInvalidError
 
-        if buffering == 1:
+        if buffering == -1:
             self.buffersize = io.DEFAULT_BUFFER_SIZE
-        elif buffering > 1:
+        else:
             self.buffersize = buffering
 
         # Create the file if needed
@@ -152,7 +152,7 @@ class HadoopFS(FS):
             # Truncate file
             self.client.create_file(self._base(path), "", overwrite=True)
 
-        return _HadoopFileLike(self._base(path), self.client)
+        return _HadoopFileLike(self._base(path), self.client, self.buffersize)
 
     def isfile(self, path):
         """Check if a path references a file.
@@ -480,7 +480,7 @@ class HadoopFS(FS):
 
 class _HadoopFileLike(FileLikeBase):
 
-    def __init__(self, hdfs_path, client):
+    def __init__(self, hdfs_path, client, buffersize):
         """HDFS file-like object constructor.
 
         :param hdfs_path: absolute remote path
@@ -489,6 +489,7 @@ class _HadoopFileLike(FileLikeBase):
 
         self.hdfs_path = hdfs_path
         self.client = client
+        self.buffersize = buffersize
         self.eof = False
 
         super(_HadoopFileLike, self).__init__()
