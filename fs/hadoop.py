@@ -93,6 +93,9 @@ class HadoopFS(FS):
             user = os.environ.get("HADOOP_USER_NAME", getpass.getuser())
 
         self.base = base
+        self.namenode = namenode
+        self.port = port
+
         self.client = pywebhdfs.webhdfs.PyWebHdfsClient(
             namenode,
             port=port,
@@ -410,6 +413,28 @@ class HadoopFS(FS):
         """
 
         return self._status(self._base(path), safe=False)
+
+    def getpathurl(self, path, allow_none=False):
+        """Returns a url that corresponds to the given path, if one exists.
+
+        If the path does not have an equivalent URL form (and allow_none is False)
+        then a :class:`~fs.errors.NoPathURLError` exception is thrown. Otherwise the URL will be
+        returns as an unicode string.
+
+        :param path: a path within the filesystem
+        :param allow_none: if true, this method can return None if there is no
+            URL form of the given path
+        :type allow_none: bool
+        :raises `fs.errors.NoPathURLError`: If no URL form exists, and allow_none is False (the default)
+        :rtype: unicode
+
+        """
+
+        namenode = self.namenode or ""
+        if len(namenode) > 0:
+            namenode = "%s:%s" % (namenode, str(self.port))
+
+        return "hdfs://%s/%s" % (namenode, self._base(path))
 
     def _base(self, path):
         """Return the given path, but prefixed with the filesystem base.
