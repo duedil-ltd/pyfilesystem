@@ -99,7 +99,8 @@ class HadoopFS(FS):
         self.client = pywebhdfs.webhdfs.PyWebHdfsClient(
             namenode,
             port=port,
-            user_name=user
+            user_name=user,
+            timeout=None
         )
 
         # Create the HDFS base path if needed. This works as `mkdir -p`. If
