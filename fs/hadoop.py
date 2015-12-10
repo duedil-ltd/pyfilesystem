@@ -106,7 +106,13 @@ class HadoopFS(FS):
         # Create the HDFS base path if needed. This works as `mkdir -p`. If
         # the remote is an existing file, an exception is thrown. Any
         # authenticated errors will result in an exception here too.
-        self.client.make_dir(base.lstrip("/"))
+
+        # Only lstrip '/' if base isn't empty
+        # You can't have '' as the base.
+        base = base.lstrip('/')
+        if base == '':
+            base='/'
+        self.client.make_dir(base)
 
         super(HadoopFS, self).__init__(thread_synchronize=thread_synchronize)
 
@@ -491,7 +497,12 @@ class HadoopFS(FS):
         """
 
         try:
-            ls = self.client.list_dir(hdfs_path.lstrip("/"))
+            # Only lstrip '/' off the hdfs_path if it's not an empty path.
+            # You can't run ls on ''
+            stripped_hdfs_path = hdfs_path.lstrip("/")
+            if stripped_hdfs_path == '':
+                stripped_hdfs_path='/'
+            ls = self.client.list_dir(stripped_hdfs_path)
         except pywebhdfs.errors.FileNotFound:
             raise fs.errors.ResourceNotFoundError
 
