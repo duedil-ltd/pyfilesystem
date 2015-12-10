@@ -110,7 +110,8 @@ class HadoopFS(FS):
         # Only lstrip '/' if base isn't empty
         # You can't have '' as the base.
         base = base.lstrip('/')
-        if base == '': base='/'
+        if base == '':
+            base='/'
         self.client.make_dir(base)
 
         super(HadoopFS, self).__init__(thread_synchronize=thread_synchronize)
@@ -499,7 +500,8 @@ class HadoopFS(FS):
             # Only lstrip '/' off the hdfs_path if it's not an empty path.
             # You can't run ls on ''
             stripped_hdfs_path = hdfs_path.lstrip("/")
-            if stripped_hdfs_path == '': stripped_hdfs_path='/'
+            if stripped_hdfs_path == '':
+                stripped_hdfs_path='/'
             ls = self.client.list_dir(stripped_hdfs_path)
         except pywebhdfs.errors.FileNotFound:
             raise fs.errors.ResourceNotFoundError
