@@ -50,6 +50,8 @@ class TestHadoopFS(unittest.TestCase, FSTestCases, ThreadingTestCases):
             base=self.root_path
         )
 
+        self.root_fs.makedir(self.base_path, recursive=True)
+
         self.fs = hadoop.HadoopFS(
             namenode=self.namenode_host,
             port=self.namenode_port,
