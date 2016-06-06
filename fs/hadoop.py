@@ -103,17 +103,6 @@ class HadoopFS(FS):
             timeout=None
         )
 
-        # Create the HDFS base path if needed. This works as `mkdir -p`. If
-        # the remote is an existing file, an exception is thrown. Any
-        # authenticated errors will result in an exception here too.
-
-        # Only lstrip '/' if base isn't empty
-        # You can't have '' as the base.
-        base = base.lstrip('/')
-        if base == '':
-            base='/'
-        self.client.make_dir(base)
-
         super(HadoopFS, self).__init__(thread_synchronize=thread_synchronize)
 
     @hdfs_errors
